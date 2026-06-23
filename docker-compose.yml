@@ -1,0 +1,78 @@
+﻿version: "3.8"
+
+services:
+
+  postgres:
+    image: postgres:15
+    container_name: isseg-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: isseg
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+
+  redis:
+    image: redis:7
+    container_name: isseg-redis
+    ports:
+      - "6379:6379"
+
+
+  api:
+    container_name: isseg-api
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./apps/api:/app
+      - /app/node_modules
+    environment:
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/isseg?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      - postgres
+      - redis
+    command: npm run dev
+
+
+  web:
+    container_name: isseg-web
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./apps/web:/app
+      - /app/node_modules
+    depends_on:
+      - api
+    command: npm run dev
+
+
+  worker:
+    container_name: isseg-worker
+    build:
+      context: .
+      dockerfile: docker/worker.Dockerfile
+    volumes:
+      - ./apps/worker:/app
+      - /app/node_modules
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      - redis
+    command: npm run dev
+
+
+volumes:
+
+  postgres_data:
